@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Feria Americana Manager</title>
+    <!-- PWA Settings -->
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkZlcmlhIEFtZXJpY2FuYSBNYW5hZ2VyIiwKICAic2hvcnRfbmFtZSI6ICJGZXJpYU1hbmFnZXIiLAogICJzdGFydF91cmwiOiAiLi8iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmOGZhc2YiLAogICJ0aGVtZV9jb2xvciI6ICIjNGY0NmU1Igp9">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eef2ff', 100: '#e0e7ff', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- JsBarcode -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- QRCode.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- SheetJS (Excel Export) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="h-full text-slate-800 flex flex-col font-sans select-none pb-16 md:pb-0">
+
+    <!-- TOP HEADER -->
+    <header class="bg-indigo-600 text-white sticky top-0 z-30 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i data-lucide="store" class="w-8 h-8 text-indigo-200"></i>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Feria Manager</h1>
+                    <p id="active-fair-label" class="text-xs text-indigo-200 font-medium">Cargando feria...</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="openFairSelector()" class="bg-indigo-700 hover:bg-indigo-800 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 transition">
+                    <i data-lucide="calendar" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Cambiar Feria</span>
+                </button>
+                <button onclick="triggerQuickPOS()" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 shadow-sm transition">
+                    <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+                    <span>COBRAR</span>
+                    <span id="cart-badge" class="ml-1 bg-white text-emerald-700 px-1.5 py-0.2 text-[10px] rounded-full hidden">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY / NAVIGATION CONTAINER -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- SIDEBAR (Desktop) -->
+        <aside class="hidden md:flex md:w-64 bg-white border-r border-slate-200 flex-col p-4 space-y-1">
+            <button onclick="switchTab('dashboard')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="dashboard">
+                <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+            </button>
+            <button onclick="switchTab('pos')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="pos">
+                <i data-lucide="shopping-bag"></i><span>Registrar Venta</span>
+            </button>
+            <button onclick="switchTab('clients')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="clients">
+                <i data-lucide="users"></i><span>Vendedores</span>
+            </button>
+            <button onclick="switchTab('products')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="products">
+                <i data-lucide="package"></i><span>Productos</span>
+            </button>
+            <button onclick="switchTab('liquidations')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="liquidations">
+                <i data-lucide="badge-dollar-sign"></i><span>Liquidaciones</span>
+            </button>
+            <button onclick="switchTab('reports')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="reports">
+                <i data-lucide="file-text"></i><span>Informes</span>
+            </button>
+            <button onclick="switchTab('fairs')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-700 hover:bg-slate-100 transition" data-tab="fairs">
+                <i data-lucide="settings"></i><span>Gestión de Ferias</span>
+            </button>
+        </aside>
+
+        <!-- CONTENT AREA -->
+        <main class="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50" id="main-container">
+
+            <!-- TAB: DASHBOARD -->
+            <section id="tab-dashboard" class="tab-content space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-slate-800">Resumen General</h2>
+                    <span class="text-xs text-slate-500 bg-slate-200 px-2.5 py-1 rounded-full font-medium" id="dash-date"></span>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Facturación Total</p>
+                        <h3 class="text-xl sm:text-2xl font-black text-slate-800 mt-1" id="dash-total-sales">$0</h3>
+                        <p class="text-[10px] text-emerald-600 mt-1 font-medium">Ingresos brutos</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Comisión Org.</p>
+                        <h3 class="text-xl sm:text-2xl font-black text-indigo-600 mt-1" id="dash-organizer-fee">$0</h3>
+                        <p class="text-[10px] text-indigo-500 mt-1 font-medium">Ganancia acumulada</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Pendiente Vendedores</p>
+                        <h3 class="text-xl sm:text-2xl font-black text-amber-600 mt-1" id="dash-sellers-pending">$0</h3>
+                        <p class="text-[10px] text-amber-500 mt-1 font-medium">Por liquidar</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Vendedores</p>
+                        <h3 class="text-xl font-bold text-slate-700 mt-1" id="dash-sellers-count">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Prod. Disponibles</p>
+                        <h3 class="text-xl font-bold text-emerald-600 mt-1" id="dash-prod-available">0</h3>
+                    </div>
+                    <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Prod. Vendidos</p>
+                        <h3 class="text-xl font-bold text-blue-600 mt-1" id="dash-prod-sold">0</h3>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <h4 class="text-sm font-bold text-slate-700 mb-4">Ventas por Categoría</h4>
+                    <div class="h-64">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: POS (VENTAS) -->
+            <section id="tab-pos" class="tab-content hidden space-y-4">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-3">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
+                        <i data-lucide="zap" class="text-amber-500"></i>
+                        <span>Registro Rápido de Venta</span>
+                    </h2>
+
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <input type="text" id="pos-search" oninput="searchPosProducts()" placeholder="Escanear o buscar código (Ej: 001-002), nombre..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <i data-lucide="search" class="absolute left-3 top-3.5 text-slate-400 w-5 h-5"></i>
+                    </div>
+
+                    <!-- Search Results -->
+                    <div id="pos-search-results" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto pt-2"></div>
+                </div>
+
+                <!-- Cart Table / Active Items -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <h3 class="font-bold text-slate-700">Carrito de Ventas</h3>
+                        <button onclick="clearCart()" class="text-xs text-rose-500 font-semibold hover:underline">Vaciar</button>
+                    </div>
+
+                    <div id="cart-items" class="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                        <p class="text-sm text-slate-400 text-center py-6">El carrito está vacío. Escanea o busca productos.</p>
+                    </div>
+
+                    <!-- Totals & Checkout -->
+                    <div class="border-t border-slate-100 pt-3 space-y-3">
+                        <div class="flex justify-between items-center text-lg font-black">
+                            <span>TOTAL:</span>
+                            <span id="cart-total" class="text-indigo-600">$0</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <button onclick="setPaymentMethod('Efectivo')" class="pay-method-btn border border-slate-200 rounded-xl p-2 text-xs font-semibold text-center hover:bg-indigo-50 border-indigo-500 text-indigo-600 active-method" data-method="Efectivo">💵 Efectivo</button>
+                            <button onclick="setPaymentMethod('Mercado Pago')" class="pay-method-btn border border-slate-200 rounded-xl p-2 text-xs font-semibold text-center hover:bg-indigo-50" data-method="Mercado Pago">📱 Mercado Pago</button>
+                            <button onclick="setPaymentMethod('Transferencia')" class="pay-method-btn border border-slate-200 rounded-xl p-2 text-xs font-semibold text-center hover:bg-indigo-50" data-method="Transferencia">🏦 Transferencia</button>
+                            <button onclick="setPaymentMethod('Tarjeta')" class="pay-method-btn border border-slate-200 rounded-xl p-2 text-xs font-semibold text-center hover:bg-indigo-50" data-method="Tarjeta">💳 Tarjeta</button>
+                        </div>
+
+                        <button onclick="checkout()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black py-3.5 rounded-xl text-lg shadow-lg shadow-emerald-200 transition flex items-center justify-center space-x-2">
+                            <i data-lucide="check-circle"></i>
+                            <span>CONFIRMAR Y COBRAR</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: VENDEDORES -->
+            <section id="tab-clients" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-slate-800">Vendedores / Clientes</h2>
+                    <button onclick="openClientModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-sm">
+                        <i data-lucide="plus"></i>
+                        <span>Nuevo Vendedor</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div class="p-3 border-b border-slate-100">
+                        <input type="text" id="client-filter" oninput="renderClients()" placeholder="Buscar por nombre, número de cliente..." class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 font-semibold uppercase border-b border-slate-100">
+                                    <th class="p-3">Nº</th>
+                                    <th class="p-3">Nombre</th>
+                                    <th class="p-3">Teléfono</th>
+                                    <th class="p-3">Comisión</th>
+                                    <th class="p-3 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clients-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: PRODUCTOS -->
+            <section id="tab-products" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-slate-800">Inventario de Productos</h2>
+                    <button onclick="openProductModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-sm">
+                        <i data-lucide="plus"></i>
+                        <span>Cargar Producto</span>
+                    </button>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 space-y-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="prod-search-input" oninput="renderProducts()" placeholder="Buscar por código, nombre..." class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs">
+                        <select id="prod-status-filter" onchange="renderProducts()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs">
+                            <option value="ALL">Todos los Estados</option>
+                            <option value="Disponible">Disponible</option>
+                            <option value="Vendido">Vendido</option>
+                            <option value="Retirado por el dueño">Retirado</option>
+                        </select>
+                        <select id="prod-cat-filter" onchange="renderProducts()" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs">
+                            <option value="ALL">Todas las Categorías</option>
+                        </select>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="bg-slate-50 text-slate-400 font-semibold uppercase border-b border-slate-100">
+                                    <th class="p-3">Código</th>
+                                    <th class="p-3">Producto</th>
+                                    <th class="p-3">Categoría</th>
+                                    <th class="p-3">Precio</th>
+                                    <th class="p-3">Estado</th>
+                                    <th class="p-3 text-right">Etiqueta</th>
+                                </tr>
+                            </thead>
+                            <tbody id="products-table-body" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: LIQUIDACIONES -->
+            <section id="tab-liquidations" class="tab-content hidden space-y-4">
+                <h2 class="text-xl font-bold text-slate-800">Liquidación por Vendedor</h2>
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Seleccionar Vendedor</label>
+                        <select id="liq-seller-select" onchange="generateLiquidation()" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-sm font-semibold">
+                            <option value="">-- Seleccionar --</option>
+                        </select>
+                    </div>
+
+                    <div id="liq-display" class="hidden space-y-4 pt-2 border-t border-slate-100">
+                        <div class="bg-slate-50 p-4 rounded-xl space-y-2">
+                            <div class="flex justify-between items-center">
+                                <h3 id="liq-client-name" class="font-bold text-base text-slate-800"></h3>
+                                <span id="liq-payment-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase"></span>
+                            </div>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs pt-2">
+                                <div><span class="text-slate-400 block">Entregados:</span> <b id="liq-qty-total">0</b></div>
+                                <div><span class="text-slate-400 block">Vendidos:</span> <b id="liq-qty-sold">0</b></div>
+                                <div><span class="text-slate-400 block">Comisión Org.:</span> <b id="liq-fee-total" class="text-indigo-600">$0</b></div>
+                                <div><span class="text-slate-400 block">A Pagar Dueño:</span> <b id="liq-owner-total" class="text-emerald-600">$0</b></div>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-slate-100 text-slate-500 font-bold uppercase">
+                                        <th class="p-2">Código</th>
+                                        <th class="p-2">Producto</th>
+                                        <th class="p-2">Precio</th>
+                                        <th class="p-2">Comisión</th>
+                                        <th class="p-2">Neto Dueño</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="liq-table-body" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-wrap gap-2 pt-2">
+                            <button onclick="printLiquidation()" class="bg-slate-800 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center space-x-1">
+                                <i data-lucide="printer" class="w-4 h-4"></i><span>Imprimir / PDF</span>
+                            </button>
+                            <button onclick="sendWhatsappLiquidation()" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center space-x-1">
+                                <i data-lucide="message-square" class="w-4 h-4"></i><span>Enviar WhatsApp</span>
+                            </button>
+                            <button onclick="togglePaymentStatus()" id="liq-pay-btn" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center space-x-1 ml-auto">
+                                <i data-lucide="check" class="w-4 h-4"></i><span>Marcar Pagado</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: INFORMES -->
+            <section id="tab-reports" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-slate-800">Informe General de la Feria</h2>
+                    <button onclick="exportToExcel()" class="bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1 shadow-sm">
+                        <i data-lucide="file-spread-sheet" class="w-4 h-4"></i><span>Exportar Excel</span>
+                    </button>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4" id="report-printable">
+                    <h3 class="text-lg font-bold border-b pb-2 text-slate-800">Resumen Cierre de Evento</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs">
+                        <div class="p-3 bg-slate-50 rounded-xl"><span class="text-slate-400 block">Clientes Participantes</span><b text-base text-slate-700 id="rep-sellers">0</b></div>
+                        <div class="p-3 bg-slate-50 rounded-xl"><span class="text-slate-400 block">Total Recibido</span><b text-base text-slate-700 id="rep-prods">0</b></div>
+                        <div class="p-3 bg-slate-50 rounded-xl"><span class="text-slate-400 block">Total Vendido</span><b text-base text-slate-700 id="rep-sold">0</b></div>
+                        <div class="p-3 bg-indigo-50 rounded-xl"><span class="text-indigo-400 block">Facturación Total</span><b text-base text-indigo-700 id="rep-revenue">$0</b></div>
+                        <div class="p-3 bg-emerald-50 rounded-xl"><span class="text-emerald-400 block">Ganancia Organizador</span><b text-base text-emerald-700 id="rep-org">$0</b></div>
+                        <div class="p-3 bg-amber-50 rounded-xl"><span class="text-amber-400 block">Total para Vendedores</span><b text-base text-amber-700 id="rep-sellers-total">$0</b></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: FERIAS -->
+            <section id="tab-fairs" class="tab-content hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-slate-800">Gestión de Ferias / Eventos</h2>
+                    <button onclick="openFairModal()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-1">
+                        <i data-lucide="plus"></i><span>Nueva Feria</span>
+                    </button>
+                </div>
+                <div id="fairs-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+            </section>
+        </main>
+    </div>
+
+    <!-- BOTTOM MOBILE NAVIGATION -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around py-2 px-1 z-30">
+        <button onclick="switchTab('dashboard')" class="nav-btn flex flex-col items-center text-slate-500" data-tab="dashboard">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i><span class="text-[10px] font-medium mt-0.5">Inicio</span>
+        </button>
+        <button onclick="switchTab('pos')" class="nav-btn flex flex-col items-center text-slate-500" data-tab="pos">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i><span class="text-[10px] font-medium mt-0.5">Venta</span>
+        </button>
+        <button onclick="switchTab('clients')" class="nav-btn flex flex-col items-center text-slate-500" data-tab="clients">
+            <i data-lucide="users" class="w-5 h-5"></i><span class="text-[10px] font-medium mt-0.5">Vendedores</span>
+        </button>
+        <button onclick="switchTab('products')" class="nav-btn flex flex-col items-center text-slate-500" data-tab="products">
+            <i data-lucide="package" class="w-5 h-5"></i><span class="text-[10px] font-medium mt-0.5">Prods</span>
+        </button>
+        <button onclick="switchTab('liquidations')" class="nav-btn flex flex-col items-center text-slate-500" data-tab="liquidations">
+            <i data-lucide="badge-dollar-sign" class="w-5 h-5"></i><span class="text-[10px] font-medium mt-0.5">Liquidar</span>
+        </button>
+    </nav>
+
+    <!-- MODAL: CLIENTE -->
+    <div id="modal-client" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl">
+            <h3 class="font-bold text-base text-slate-800" id="modal-client-title">Nuevo Vendedor</h3>
+            <form id="form-client" onsubmit="saveClient(event)" class="space-y-3 text-xs">
+                <input type="hidden" id="cli-id">
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">Nombre *</label>
+                    <input type="text" id="cli-first" required class="w-full border rounded-lg p-2.5 bg-slate-50">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">Apellido *</label>
+                    <input type="text" id="cli-last" required class="w-full border rounded-lg p-2.5 bg-slate-50">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-500 mb-1">WhatsApp / Teléfono *</label>
+                        <input type="text" id="cli-phone" required class="w-full border rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-500 mb-1">% Comisión Acordado</label>
+                        <input type="number" id="cli-fee" value="30" min="0" max="100" class="w-full border rounded-lg p-2.5 bg-slate-50">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeClientModal()" class="px-4 py-2 border rounded-xl text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: PRODUCTO -->
+    <div id="modal-product" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 class="font-bold text-base text-slate-800">Cargar Producto</h3>
+            <form id="form-product" onsubmit="saveProduct(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">Vendedor / Cliente *</label>
+                    <select id="prod-cli-id" required class="w-full border rounded-lg p-2.5 bg-slate-50 font-medium"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">Nombre del Producto *</label>
+                    <input type="text" id="prod-name" required placeholder="Ej. Campera de Jean" class="w-full border rounded-lg p-2.5 bg-slate-50">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block font-semibold text-slate-500 mb-1">Categoría</label>
+                        <select id="prod-cat" class="w-full border rounded-lg p-2.5 bg-slate-50"></select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-500 mb-1">Precio Venta ($) *</label>
+                        <input type="number" id="prod-price" required min="0" step="50" class="w-full border rounded-lg p-2.5 bg-slate-50 font-bold">
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeProductModal()" class="px-4 py-2 border rounded-xl text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: VER / IMPRIMIR ETIQUETA -->
+    <div id="modal-barcode" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xs w-full p-5 text-center space-y-3">
+            <h3 class="font-bold text-sm text-slate-700">Etiqueta del Producto</h3>
+            <div id="printable-area" class="border border-dashed border-slate-300 p-3 rounded-xl flex flex-col items-center bg-white">
+                <p id="lbl-fair-name" class="text-[9px] uppercase font-bold text-slate-400"></p>
+                <p id="lbl-prod-name" class="font-bold text-xs text-slate-800 mt-1"></p>
+                <p id="lbl-prod-price" class="text-base font-black text-indigo-600 my-1"></p>
+                <svg id="barcode"></svg>
+                <div id="qrcode" class="mt-2"></div>
+                <p id="lbl-prod-code" class="text-[10px] font-mono mt-1 text-slate-500"></p>
+            </div>
+            <div class="flex justify-center space-x-2">
+                <button onclick="closeBarcodeModal()" class="px-3 py-1.5 border rounded-lg text-xs font-bold">Cerrar</button>
+                <button onclick="window.print()" class="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold flex items-center space-x-1">
+                    <i data-lucide="printer" class="w-3 h-3"></i><span>Imprimir</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA FERIA -->
+    <div id="modal-fair" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3">
+            <h3 class="font-bold text-base text-slate-800">Nueva Feria Americana</h3>
+            <form onsubmit="saveFair(event)" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">Nombre del Evento *</label>
+                    <input type="text" id="fair-name" required placeholder="Ej. Feria Primavera 2026" class="w-full border rounded-lg p-2.5 bg-slate-50">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-500 mb-1">% Comisión General Predeterminada</label>
+                    <input type="number" id="fair-fee" value="30" class="w-full border rounded-lg p-2.5 bg-slate-50">
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" onclick="closeFairModal()" class="px-4 py-2 border rounded-xl text-slate-500 font-bold">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold">Crear Feria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APP LOGIC -->
+    <script>
+        // --- CONSTANTS & CATEGORIES ---
+        const CATEGORIES = [
+            "Ropa mujer", "Ropa hombre", "Ropa niños", "Calzado", 
+            "Carteras", "Accesorios", "Bijouterie", "Decoración", 
+            "Hogar", "Libros", "Juguetes", "Tecnología", "Otros"
+        ];
+
+        // --- LOCAL STORAGE STATE MANAGEMENT ---
+        let db = {
+            fairs: JSON.parse(localStorage.getItem('fam_fairs')) || [{ id: 'f1', name: 'Feria Principal 2026', defaultFee: 30, status: 'Activa' }],
+            activeFairId: localStorage.getItem('fam_active_fair') || 'f1',
+            clients: JSON.parse(localStorage.getItem('fam_clients')) || [],
+            products: JSON.parse(localStorage.getItem('fam_products')) || [],
+            sales: JSON.parse(localStorage.getItem('fam_sales')) || []
+        };
+
+        let cart = [];
+        let currentPayMethod = 'Efectivo';
+        let chartInstance = null;
+
+        function saveDB() {
+            localStorage.setItem('fam_fairs', JSON.stringify(db.fairs));
+            localStorage.setItem('fam_active_fair', db.activeFairId);
+            localStorage.setItem('fam_clients', JSON.stringify(db.clients));
+            localStorage.setItem('fam_products', JSON.stringify(db.products));
+            localStorage.setItem('fam_sales', JSON.stringify(db.sales));
+        }
+
+        // --- INIT & UTILS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            populateCategories();
+            updateActiveFairLabel();
+            switchTab('dashboard');
+            document.getElementById('dash-date').innerText = new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+            
+            // Register PWA Service Worker
+            if ('serviceWorker' in navigator) {
+                const swCode = `self.addEventListener('fetch', function(e) {});`;
+                const blob = new Blob([swCode], {type: 'application/javascript'});
+                navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+            }
+        });
+
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function getActiveFair() {
+            return db.fairs.find(f => f.id === db.activeFairId) || db.fairs[0];
+        }
+
+        function updateActiveFairLabel() {
+            const fair = getActiveFair();
+            if(fair) document.getElementById('active-fair-label').innerText = fair.name;
+        }
+
+        function populateCategories() {
+            const catFilter = document.getElementById('prod-cat-filter');
+            const prodCat = document.getElementById('prod-cat');
+            catFilter.innerHTML = '<option value="ALL">Todas las Categorías</option>';
+            prodCat.innerHTML = '';
+            CATEGORIES.forEach(c => {
+                catFilter.innerHTML += `<option value="${c}">${c}</option>`;
+                prodCat.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        // --- NAVIGATION ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if(btn.dataset.tab === tabId) {
+                    btn.classList.add('bg-indigo-50', 'text-indigo-600');
+                } else {
+                    btn.classList.remove('bg-indigo-50', 'text-indigo-600');
+                }
+            });
+
+            if(tabId === 'dashboard') renderDashboard();
+            if(tabId === 'clients') renderClients();
+            if(tabId === 'products') renderProducts();
+            if(tabId === 'liquidations') populateLiquidationSellers();
+            if(tabId === 'reports') renderReports();
+            if(tabId === 'fairs') renderFairs();
+            lucide.createIcons();
+        }
+
+        // --- DASHBOARD ---
+        function renderDashboard() {
+            const activeFair = db.activeFairId;
+            const fairSales = db.sales.filter(s => s.fairId === activeFair);
+            const fairProds = db.products.filter(p => p.fairId === activeFair);
+            const fairClients = db.clients.filter(c => c.fairId === activeFair);
+
+            let totalSales = 0;
+            let totalFee = 0;
+            let totalSellersNet = 0;
+
+            fairSales.forEach(s => {
+                s.items.forEach(item => {
+                    totalSales += item.price;
+                    totalFee += item.feeAmount;
+                    totalSellersNet += item.ownerAmount;
+                });
+            });
+
+            document.getElementById('dash-total-sales').innerText = formatMoney(totalSales);
+            document.getElementById('dash-organizer-fee').innerText = formatMoney(totalFee);
+            document.getElementById('dash-sellers-pending').innerText = formatMoney(totalSellersNet);
+            document.getElementById('dash-sellers-count').innerText = fairClients.length;
+            document.getElementById('dash-prod-available').innerText = fairProds.filter(p => p.status === 'Disponible').length;
+            document.getElementById('dash-prod-sold').innerText = fairProds.filter(p => p.status === 'Vendido').length;
+
+            // Chart Logic
+            const catTotals = {};
+            fairSales.forEach(s => {
+                s.items.forEach(i => {
+                    catTotals[i.category] = (catTotals[i.category] || 0) + i.price;
+                });
+            });
+
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            if(chartInstance) chartInstance.destroy();
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(catTotals).length ? Object.keys(catTotals) : ['Sin Datos'],
+                    datasets: [{
+                        label: 'Ventas ($)',
+                        data: Object.keys(catTotals).length ? Object.values(catTotals) : [0],
+                        backgroundColor: '#6366f1',
+                        borderRadius: 8
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+
+        // --- CLIENTS / VENDEDORES ---
+        function openClientModal() {
+            document.getElementById('cli-id').value = '';
+            document.getElementById('form-client').reset();
+            document.getElementById('modal-client').classList.remove('hidden');
+        }
+
+        function closeClientModal() {
+            document.getElementById('modal-client').classList.add('hidden');
+        }
+
+        function saveClient(e) {
+            e.preventDefault();
+            const id = document.getElementById('cli-id').value;
+            const activeFair = db.activeFairId;
+
+            if(!id) {
+                const fairClients = db.clients.filter(c => c.fairId === activeFair);
+                const nextNum = (fairClients.length + 1).toString().padStart(3, '0');
+                const newClient = {
+                    id: Date.now().toString(),
+                    fairId: activeFair,
+                    clientNum: nextNum,
+                    firstName: document.getElementById('cli-first').value,
+                    lastName: document.getElementById('cli-last').value,
+                    phone: document.getElementById('cli-phone').value,
+                    feePercent: parseFloat(document.getElementById('cli-fee').value) || 30,
+                    isPaid: false
+                };
+                db.clients.push(newClient);
+            }
+            saveDB();
+            closeClientModal();
+            renderClients();
+        }
+
+        function renderClients() {
+            const filter = document.getElementById('client-filter').value.toLowerCase();
+            const tbody = document.getElementById('clients-table-body');
+            tbody.innerHTML = '';
+
+            const list = db.clients.filter(c => c.fairId === db.activeFairId && 
+                (`${c.firstName} ${c.lastName} ${c.clientNum}`).toLowerCase().includes(filter)
+            );
+
+            list.forEach(c => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="p-3 font-mono font-bold text-indigo-600">Nº ${c.clientNum}</td>
+                        <td class="p-3 font-semibold">${c.firstName} ${c.lastName}</td>
+                        <td class="p-3">${c.phone}</td>
+                        <td class="p-3 font-bold">${c.feePercent}%</td>
+                        <td class="p-3 text-right">
+                            <button onclick="quickAddProductForClient('${c.id}')" class="bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md text-[10px] font-bold">
+                                + Cargar Prod.
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // --- PRODUCTS ---
+        function openProductModal(cliId = null) {
+            const select = document.getElementById('prod-cli-id');
+            select.innerHTML = '';
+            const fairClients = db.clients.filter(c => c.fairId === db.activeFairId);
+            
+            if(fairClients.length === 0) {
+                alert('Primero debe registrar al menos un vendedor.');
+                return switchTab('clients');
+            }
+
+            fairClients.forEach(c => {
+                select.innerHTML += `<option value="${c.id}" ${cliId === c.id ? 'selected' : ''}>Nº ${c.clientNum} - ${c.firstName} ${c.lastName}</option>`;
+            });
+
+            document.getElementById('form-product').reset();
+            document.getElementById('modal-product').classList.remove('hidden');
+        }
+
+        function closeProductModal() {
+            document.getElementById('modal-product').classList.add('hidden');
+        }
+
+        function quickAddProductForClient(cliId) {
+            openProductModal(cliId);
+        }
+
+        function saveProduct(e) {
+            e.preventDefault();
+            const cliId = document.getElementById('prod-cli-id').value;
+            const client = db.clients.find(c => c.id === cliId);
+            const activeFair = db.activeFairId;
+
+            const existingProds = db.products.filter(p => p.fairId === activeFair && p.clientId === cliId);
+            const prodSeq = (existingProds.length + 1).toString().padStart(3, '0');
+            const fullCode = `${client.clientNum}-${prodSeq}`;
+
+            const price = parseFloat(document.getElementById('prod-price').value);
+            const feePercent = client.feePercent;
+            const feeAmount = price * (feePercent / 100);
+
+            const newProduct = {
+                id: Date.now().toString(),
+                fairId: activeFair,
+                clientId: cliId,
+                clientNum: client.clientNum,
+                code: fullCode,
+                name: document.getElementById('prod-name').value,
+                category: document.getElementById('prod-cat').value,
+                price: price,
+                feePercent: feePercent,
+                feeAmount: feeAmount,
+                ownerAmount: price - feeAmount,
+                status: 'Disponible'
+            };
+
+            db.products.push(newProduct);
+            saveDB();
+            closeProductModal();
+            renderProducts();
+        }
+
+        function renderProducts() {
+            const query = document.getElementById('prod-search-input').value.toLowerCase();
+            const status = document.getElementById('prod-status-filter').value;
+            const cat = document.getElementById('prod-cat-filter').value;
+            const tbody = document.getElementById('products-table-body');
+            tbody.innerHTML = '';
+
+            const list = db.products.filter(p => {
+                const matchFair = p.fairId === db.activeFairId;
+                const matchQ = p.code.toLowerCase().includes(query) || p.name.toLowerCase().includes(query);
+                const matchS = status === 'ALL' || p.status === status;
+                const matchC = cat === 'ALL' || p.category === cat;
+                return matchFair && matchQ && matchS && matchC;
+            });
+
+            list.forEach(p => {
+                let badgeClass = 'bg-emerald-100 text-emerald-700';
+                if(p.status === 'Vendido') badgeClass = 'bg-blue-100 text-blue-700';
+                if(p.status === 'Retirado por el dueño') badgeClass = 'bg-slate-100 text-slate-600';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100">
+                        <td class="p-3 font-mono font-bold text-slate-800">${p.code}</td>
+                        <td class="p-3 font-medium">${p.name}</td>
+                        <td class="p-3 text-slate-500">${p.category}</td>
+                        <td class="p-3 font-black">${formatMoney(p.price)}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${p.status}</span></td>
+                        <td class="p-3 text-right">
+                            <button onclick="showBarcode('${p.id}')" class="text-indigo-600 hover:text-indigo-900 p-1">
+                                <i data-lucide="qr-code" class="w-4 h-4"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            lucide.createIcons();
+        }
+
+        function showBarcode(prodId) {
+            const p = db.products.find(x => x.id === prodId);
+            const fair = getActiveFair();
+            if(!p) return;
+
+            document.getElementById('lbl-fair-name').innerText = fair.name;
+            document.getElementById('lbl-prod-name').innerText = p.name;
+            document.getElementById('lbl-prod-price').innerText = formatMoney(p.price);
+            document.getElementById('lbl-prod-code').innerText = p.code;
+
+            JsBarcode("#barcode", p.code, { format: "CODE128", width: 1.5, height: 40, displayValue: false });
+            
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById('qrcode'), { text: p.code, width: 50, height: 50 });
+
+            document.getElementById('modal-barcode').classList.remove('hidden');
+        }
+
+        function closeBarcodeModal() {
+            document.getElementById('modal-barcode').classList.add('hidden');
+        }
+
+        // --- POS & CARRITO ---
+        function triggerQuickPOS() {
+            switchTab('pos');
+            setTimeout(() => document.getElementById('pos-search').focus(), 100);
+        }
+
+        function searchPosProducts() {
+            const q = document.getElementById('pos-search').value.trim().toLowerCase();
+            const container = document.getElementById('pos-search-results');
+            container.innerHTML = '';
+            if(!q) return;
+
+            const results = db.products.filter(p => p.fairId === db.activeFairId && p.status === 'Disponible' && (p.code.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)));
+
+            results.forEach(p => {
+                container.innerHTML += `
+                    <div onclick="addToCart('${p.id}')" class="p-2.5 bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-xl cursor-pointer flex justify-between items-center transition">
+                        <div>
+                            <p class="font-mono font-bold text-xs text-indigo-600">${p.code}</p>
+                            <p class="font-semibold text-xs text-slate-800">${p.name}</p>
+                        </div>
+                        <p class="font-black text-sm text-slate-800">${formatMoney(p.price)}</p>
+                    </div>
+                `;
+            });
+        }
+
+        function addToCart(prodId) {
+            const prod = db.products.find(p => p.id === prodId);
+            if(!prod || cart.some(i => i.id === prodId)) return;
+
+            cart.push(prod);
+            document.getElementById('pos-search').value = '';
+            document.getElementById('pos-search-results').innerHTML = '';
+            renderCart();
+        }
+
+        function removeFromCart(prodId) {
+            cart = cart.filter(i => i.id !== prodId);
+            renderCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const badge = document.getElementById('cart-badge');
+            container.innerHTML = '';
+
+            if(cart.length === 0) {
+                container.innerHTML = `<p class="text-sm text-slate-400 text-center py-6">El carrito está vacío. Escanea o busca productos.</p>`;
+                document.getElementById('cart-total').innerText = formatMoney(0);
+                badge.classList.add('hidden');
+                return;
+            }
+
+            badge.innerText = cart.length;
+            badge.classList.remove('hidden');
+
+            let total = 0;
+            cart.forEach(item => {
+                total += item.price;
+                container.innerHTML += `
+                    <div class="py-2 flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-xs text-slate-800">${item.name} <span class="font-mono text-[10px] text-indigo-600">(${item.code})</span></p>
+                            <p class="text-[10px] text-slate-400">Dueño: Cliente Nº ${item.clientNum}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-xs text-slate-800">${formatMoney(item.price)}</span>
+                            <button onclick="removeFromCart('${item.id}')" class="text-rose-500 hover:text-rose-700">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('cart-total').innerText = formatMoney(total);
+            lucide.createIcons();
+        }
+
+        function setPaymentMethod(method) {
+            currentPayMethod = method;
+            document.querySelectorAll('.pay-method-btn').forEach(b => {
+                if(b.dataset.method === method) {
+                    b.classList.add('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+                } else {
+                    b.classList.remove('border-indigo-500', 'text-indigo-600', 'bg-indigo-50');
+                }
+            });
+        }
+
+        function checkout() {
+            if(cart.length === 0) return alert('Agrega productos al carrito.');
+
+            const sale = {
+                id: Date.now().toString(),
+                fairId: db.activeFairId,
+                timestamp: new Date().toISOString(),
+                method: currentPayMethod,
+                items: [...cart]
+            };
+
+            // Update products state
+            cart.forEach(item => {
+                const p = db.products.find(x => x.id === item.id);
+                if(p) p.status = 'Vendido';
+            });
+
+            db.sales.push(sale);
+            saveDB();
+            clearCart();
+            alert('¡Venta realizada con éxito!');
+            switchTab('dashboard');
+        }
+
+        // --- LIQUIDACIONES ---
+        function populateLiquidationSellers() {
+            const select = document.getElementById('liq-seller-select');
+            select.innerHTML = '<option value="">-- Seleccionar Vendedor --</option>';
+            const clients = db.clients.filter(c => c.fairId === db.activeFairId);
+            clients.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">Nº ${c.clientNum} - ${c.firstName} ${c.lastName}</option>`;
+            });
+        }
+
+        function generateLiquidation() {
+            const clientId = document.getElementById('liq-seller-select').value;
+            const display = document.getElementById('liq-display');
+            if(!clientId) return display.classList.add('hidden');
+
+            const client = db.clients.find(c => c.id === clientId);
+            const prods = db.products.filter(p => p.fairId === db.activeFairId && p.clientId === clientId);
+            const soldProds = prods.filter(p => p.status === 'Vendido');
+
+            document.getElementById('liq-client-name').innerText = `Cliente Nº ${client.clientNum}: ${client.firstName} ${client.lastName}`;
+            
+            const badge = document.getElementById('liq-payment-badge');
+            badge.innerText = client.isPaid ? 'PAGADO' : 'PENDIENTE';
+            badge.className = client.isPaid ? 'px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700' : 'px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-700';
+
+            document.getElementById('liq-qty-total').innerText = prods.length;
+            document.getElementById('liq-qty-sold').innerText = soldProds.length;
+
+            let totalFee = 0;
+            let totalOwner = 0;
+            const tbody = document.getElementById('liq-table-body');
+            tbody.innerHTML = '';
+
+            soldProds.forEach(p => {
+                totalFee += p.feeAmount;
+                totalOwner += p.ownerAmount;
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-2 font-mono font-bold">${p.code}</td>
+                        <td class="p-2">${p.name}</td>
+                        <td class="p-2 font-bold">${formatMoney(p.price)}</td>
+                        <td class="p-2 text-indigo-600">${formatMoney(p.feeAmount)} (${p.feePercent}%)</td>
+                        <td class="p-2 font-black text-emerald-600">${formatMoney(p.ownerAmount)}</td>
+                    </tr>
+                `;
+            });
+
+            document.getElementById('liq-fee-total').innerText = formatMoney(totalFee);
+            document.getElementById('liq-owner-total').innerText = formatMoney(totalOwner);
+
+            display.classList.remove('hidden');
+        }
+
+        function togglePaymentStatus() {
+            const clientId = document.getElementById('liq-seller-select').value;
+            const client = db.clients.find(c => c.id === clientId);
+            if(client) {
+                client.isPaid = !client.isPaid;
+                saveDB();
+                generateLiquidation();
+            }
+        }
+
+        function sendWhatsappLiquidation() {
+            const clientId = document.getElementById('liq-seller-select').value;
+            const client = db.clients.find(c => c.id === clientId);
+            const prods = db.products.filter(p => p.fairId === db.activeFairId && p.clientId === clientId && p.status === 'Vendido');
+            
+            let totalOwner = prods.reduce((acc, p) => acc + p.ownerAmount, 0);
+
+            let msg = `Hola ${client.firstName}, resumen de tu liquidación en la Feria:\n\n`;
+            msg += ` Vendidos: ${prods.length} productos.\n`;
+            msg += ` Total a cobrar: ${formatMoney(totalOwner)}\n\n`;
+            msg += `¡Gracias por participar!`;
+
+            window.open(`https://wa.me/${client.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+
+        function printLiquidation() {
+            window.print();
+        }
+
+        // --- REPORTS & EXPORT ---
+        function renderReports() {
+            const activeFair = db.activeFairId;
+            const fairSales = db.sales.filter(s => s.fairId === activeFair);
+            const fairProds = db.products.filter(p => p.fairId === activeFair);
+            const fairClients = db.clients.filter(c => c.fairId === activeFair);
+
+            let totalRev = 0, totalOrg = 0, totalSellers = 0;
+            fairSales.forEach(s => {
+                s.items.forEach(i => {
+                    totalRev += i.price;
+                    totalOrg += i.feeAmount;
+                    totalSellers += i.ownerAmount;
+                });
+            });
+
+            document.getElementById('rep-sellers').innerText = fairClients.length;
+            document.getElementById('rep-prods').innerText = fairProds.length;
+            document.getElementById('rep-sold').innerText = fairProds.filter(p => p.status === 'Vendido').length;
+            document.getElementById('rep-revenue').innerText = formatMoney(totalRev);
+            document.getElementById('rep-org').innerText = formatMoney(totalOrg);
+            document.getElementById('rep-sellers-total').innerText = formatMoney(totalSellers);
+        }
+
+        function exportToExcel() {
+            const activeFair = db.activeFairId;
+            const prods = db.products.filter(p => p.fairId === activeFair);
+            
+            const data = prods.map(p => ({
+                Código: p.code,
+                Producto: p.name,
+                Categoría: p.category,
+                Precio: p.price,
+                Comisión: p.feeAmount,
+                Monto_Dueño: p.ownerAmount,
+                Estado: p.status
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Productos");
+            XLSX.writeFile(wb, "informe_feria.xlsx");
+        }
+
+        // --- FAIRS MANAGEMENT ---
+        function openFairSelector() {
+            switchTab('fairs');
+        }
+
+        function openFairModal() {
+            document.getElementById('modal-fair').classList.remove('hidden');
+        }
+
+        function closeFairModal() {
+            document.getElementById('modal-fair').classList.add('hidden');
+        }
+
+        function saveFair(e) {
+            e.preventDefault();
+            const newFair = {
+                id: Date.now().toString(),
+                name: document.getElementById('fair-name').value,
+                defaultFee: parseFloat(document.getElementById('fair-fee').value) || 30,
+                status: 'Activa'
+            };
+            db.fairs.push(newFair);
+            db.activeFairId = newFair.id;
+            saveDB();
+            closeFairModal();
+            updateActiveFairLabel();
+            switchTab('dashboard');
+        }
+
+        function selectActiveFair(id) {
+            db.activeFairId = id;
+            saveDB();
+            updateActiveFairLabel();
+            switchTab('dashboard');
+        }
+
+        function renderFairs() {
+            const container = document.getElementById('fairs-list');
+            container.innerHTML = '';
+            db.fairs.forEach(f => {
+                const isActive = f.id === db.activeFairId;
+                container.innerHTML += `
+                    <div class="bg-white p-4 rounded-2xl border ${isActive ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-100'} shadow-sm flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-sm text-slate-800">${f.name}</h4>
+                            <p class="text-xs text-slate-400">Comisión Base: ${f.defaultFee}%</p>
+                        </div>
+                        ${isActive ? '<span class="bg-indigo-100 text-indigo-700 font-bold text-[10px] px-2.5 py-1 rounded-full">ACTIVA</span>' : `<button onclick="selectActiveFair('${f.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-3 py-1.5 rounded-xl font-semibold">Seleccionar</button>`}
+                    </div>
+                `;
+            });
+        }
+    </script>
+</body>
+</html>
